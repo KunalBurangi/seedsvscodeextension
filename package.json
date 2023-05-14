@@ -2,7 +2,7 @@
 	"name": "kbur-seed-test-1",
 	"displayName": "Seed Projects",
 	"description": "",
-	"version": "0.0.10",
+	"version": "1.0.0",
 	"engines": {
 		"vscode": "^1.55.0"
 	},

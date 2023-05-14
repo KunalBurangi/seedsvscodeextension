@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { window, commands, ExtensionContext, ProgressLocation } from "vscode";
+const homedir = require("os").homedir();
 const fs = require("fs");
 import * as cp from "child_process";
 const pkg = require("../package.json");
@@ -23,7 +24,9 @@ export async function executeCommand(command: string, cwd: string) {
   return new Promise(async (resolve, reject) => {
     let stdout = "";
     let stderr = "";
-    const child: any = await cp.exec(command, { cwd });
+    const child: any = await cp.exec(command, {
+      cwd: `${homedir}\\.vscode\\extensions\\kunalburangi.kbur-seed-test-1-${pkg.version}\\dist`,
+    });
 
     const progress: any = window.withProgress(
       {
@@ -101,10 +104,11 @@ export function activate(context: ExtensionContext) {
         if (projectPath) {
           const init = async (cmd: string) =>
             new Promise<any>((resolve) => {
+              console.log(homedir);
               terminal = window.createTerminal({
                 name: `Seed Project`,
                 hideFromUser: false,
-                cwd: projectPath,
+                cwd: `${homedir}\\.vscode\\extensions\\kunalburangi.kbur-seed-test-1-${pkg.version}`,
               });
 
               terminal.show(true);
@@ -114,64 +118,13 @@ export function activate(context: ExtensionContext) {
                 resolve("true");
               }, 5000);
             });
-          let execRes = "";
 
-          const execShell = async (cmd: string) =>
-            window.withProgress(
-              {
-                location: ProgressLocation.Notification,
-                title: `Setting up ${getSelectedRepovalue} project`,
-                cancellable: false,
-              },
-              (progress, token) => {
-                token.onCancellationRequested(() => {
-                  console.log("User canceled the long running operation");
-                });
-
-                progress.report({ increment: 0 });
-                let waitingMessageCount = 0;
-                setInterval(() => {
-                  progress.report({
-                    increment: 2,
-                    message: getwaitingMessage(
-                      waitingMessageCount > 3
-                        ? waitingMessageCount - waitingMessageCount
-                        : waitingMessageCount + 1
-                    ),
-                  });
-                  waitingMessageCount =
-                    waitingMessageCount > 3
-                      ? waitingMessageCount - waitingMessageCount
-                      : waitingMessageCount + 1;
-                }, 2000);
-
-                const p = new Promise<any>(async (resolve, reject) => {
-                  await cp.exec(
-                    `${cmd}`,
-                    { cwd: projectPath, env: process.env },
-                    (e, stdout) => {
-                      if (e) {
-                        reject(window.showErrorMessage(e.message));
-                      } else {
-                        progress.report({
-                          increment: 10,
-                          message: "Done.",
-                        });
-                        execRes = stdout;
-                        resolve(stdout);
-                      }
-                    }
-                  );
-                });
-
-                return p;
-              }
-            );
           if (!fs.existsSync(projectPath)) {
             executeCommand(`mkdir ${projectPath}`, projectPath);
           }
           await init(
-            `cp $HOME\\.vscode\\extensions\\kunalburangi.kbur-seed-test-1-${pkg.version}\\dist\\tmpo.exe ${projectPath}`
+            // `cp $HOME\\.vscode\\extensions\\kunalburangi.kbur-seed-test-1-${pkg.version}\\dist\\tmpo.exe ${projectPath}`
+            "echo Seed Project is working for you!"
           )
             .then(async () => {
               let getRepoValue;
@@ -208,7 +161,7 @@ export function activate(context: ExtensionContext) {
                 getSelectedRepovalue
               ) {
                 await executeCommand(
-                  `echo y | tmpo --yes init ${projectName} -r ${getRepoValue} -t ${getSelectedRepovalue} --username . --email . --remote . `,
+                  `echo y | tmpo --yes init ${projectName} -r ${getRepoValue} -t ${getSelectedRepovalue} -d ${projectPath} --username . --email . --remote . `,
                   projectPath
                 );
                 await init(`rm ${projectPath}\\tmpo.exe`).catch(
