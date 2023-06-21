@@ -20,7 +20,7 @@ export function getwaitingMessage(count: number) {
     return "Setting up project";
   }
 }
-export async function executeCommand(command: string, cwd: string) {
+export async function executeCommand(command: string) {
   return new Promise(async (resolve, reject) => {
     let stdout = "";
     let stderr = "";
@@ -48,6 +48,7 @@ export async function executeCommand(command: string, cwd: string) {
 
           child.stderr.on("data", (data: any) => {
             stderr += data;
+            progress.report({ message: data.toString() });
           });
 
           child.on("close", (exitCode: any) => {
@@ -83,6 +84,7 @@ export function activate(context: ExtensionContext) {
         value: "",
         valueSelection: [2, 4],
         placeHolder: "Name of project",
+        ignoreFocusOut: true,
         validateInput: (text) => {
           // window.showInformationMessage(`Validating: ${text}`);
           return text === "123" ? "Not 123!" : null;
@@ -94,6 +96,7 @@ export function activate(context: ExtensionContext) {
         projectPath = await window.showInputBox({
           value: "",
           valueSelection: [2, 4],
+          ignoreFocusOut: true,
           placeHolder:
             "Path of the directory where the project should get created. eg: C://temp",
           validateInput: (text) => {
@@ -102,79 +105,49 @@ export function activate(context: ExtensionContext) {
           },
         });
         if (projectPath) {
-          const init = async (cmd: string) =>
-            new Promise<any>((resolve) => {
-              console.log(homedir);
-              terminal = window.createTerminal({
-                name: `Seed Project`,
-                hideFromUser: false,
-                cwd: `${homedir}\\.vscode\\extensions\\kunalburangi.kbur-seed-test-1-${pkg.version}`,
-              });
-
-              terminal.show(true);
-
-              terminal?.sendText(cmd);
-              setTimeout(() => {
-                resolve("true");
-              }, 5000);
-            });
+          projectPath = `${projectPath}/${projectName}`;
 
           if (!fs.existsSync(projectPath)) {
-            executeCommand(`mkdir ${projectPath}`, projectPath);
+            executeCommand(`mkdir ${projectPath}`);
           }
-          await init(
-            // `cp $HOME\\.vscode\\extensions\\kunalburangi.kbur-seed-test-1-${pkg.version}\\dist\\tmpo.exe ${projectPath}`
-            "echo Seed Project is working for you!"
-          )
-            .then(async () => {
-              let getRepoValue;
-              let repoList: any = await executeCommand(
-                `tmpo repository list `,
-                projectPath
-              );
-              repoList = repoList.split("\n");
 
-              await window.showQuickPick(repoList, {
-                placeHolder: "Select Repository",
-                onDidSelectItem: (item) =>
-                  (getRepoValue = item.toString().toLowerCase()),
-              });
-              const outputRepovalueList: any = await executeCommand(
-                `tmpo template list -r ${getRepoValue}`,
-                projectPath
-              );
-              let selectedrepositorylist = outputRepovalueList.split("\n");
-              if (selectedrepositorylist[0].includes("New release found")) {
-                selectedrepositorylist = selectedrepositorylist.reverse();
-                selectedrepositorylist.pop();
-              }
+          let getRepoValue;
+          let repoList: any = await executeCommand(`tmpo repository list `);
+          repoList = repoList.split("\n");
 
-              await window.showQuickPick(selectedrepositorylist, {
-                placeHolder: `Select ${getRepoValue} Repository`,
-                onDidSelectItem: (item) =>
-                  (getSelectedRepovalue = item.toString().toLowerCase()),
-              });
-              if (
-                projectName &&
-                projectPath &&
-                getRepoValue &&
-                getSelectedRepovalue
-              ) {
-                await executeCommand(
-                  `echo y | tmpo --yes init ${projectName} -r ${getRepoValue} -t ${getSelectedRepovalue} -d ${projectPath} --username . --email . --remote . `,
-                  projectPath
-                );
-                await init(`rm ${projectPath}\\tmpo.exe`).catch(
-                  (err: Error) => {
-                    console.log(err.message);
-                  }
-                );
-                terminal?.hide();
-              }
-            })
-            .catch((err: Error) => {
-              console.log(err.message);
-            });
+          await window.showQuickPick(repoList, {
+            placeHolder: "Select Repository",
+            ignoreFocusOut: true,
+            onDidSelectItem: (item) =>
+              (getRepoValue = item.toString().toLowerCase()),
+          });
+          const outputRepovalueList: any = await executeCommand(
+            `tmpo template list -r "${getRepoValue}"`
+          );
+          let selectedrepositorylist = outputRepovalueList.split("\n");
+          if (selectedrepositorylist[0].includes("New release found")) {
+            selectedrepositorylist = selectedrepositorylist.reverse();
+            selectedrepositorylist.pop();
+          }
+
+          await window.showQuickPick(selectedrepositorylist, {
+            placeHolder: `Select "${getRepoValue}" Repository`,
+            ignoreFocusOut: true,
+            onDidSelectItem: (item) =>
+              (getSelectedRepovalue = item.toString().toLowerCase()),
+          });
+          if (
+            projectName &&
+            projectPath &&
+            getRepoValue &&
+            getSelectedRepovalue
+          ) {
+            await executeCommand(
+              `echo y | tmpo --yes init "${projectName}" -r "${getRepoValue}" -t "${getSelectedRepovalue}" -d "${projectPath}" --username . --email . --remote . `
+            );
+
+            terminal?.hide();
+          }
         }
       }
     })
@@ -189,173 +162,159 @@ export function activate(context: ExtensionContext) {
       let accessToken: any = "";
       let repoNamealias: any = "";
       let repositoryDescription: any = "";
-      projectPath = await window.showInputBox({
-        value: "",
-        valueSelection: [2, 4],
-        placeHolder:
-          "Path of the directory where the project should get created. eg: C://temp",
-        validateInput: (text) => {
-          // window.showInformationMessage(`Validating: ${text}`);
-          return text === "123" ? "Not 123!" : null;
-        },
-      });
-      if (projectPath) {
-        selectedRepositoryType = "";
-        selectedRepoSource = "";
-        authType = "";
-        repositoryUrl = "";
-        branchName = "";
-        accessToken = "";
-        repoNamealias = "";
-        repositoryDescription = "";
+
+      selectedRepositoryType = "";
+      selectedRepoSource = "";
+      authType = "";
+      repositoryUrl = "";
+      branchName = "";
+      accessToken = "";
+      repoNamealias = "";
+      repositoryDescription = "";
+      await window
+        .showQuickPick(["Remote", "Directory"], {
+          placeHolder: "Select Repository Type",
+          ignoreFocusOut: true,
+        })
+        .then((selection) => {
+          if (!selection) {
+            return;
+          }
+          selectedRepositoryType = selection.toString().toLowerCase();
+        });
+      if (!selectedRepositoryType) {
+        window.showErrorMessage("Repository Type is required!");
+        return;
+      }
+      if (selectedRepositoryType && selectedRepositoryType === "remote") {
         await window
-          .showQuickPick(["Remote", "Directory"], {
-            placeHolder: "Select Repository Type",
+          .showQuickPick(["Github", "Gitlab"], {
+            placeHolder: "Select Repository Source",
             ignoreFocusOut: true,
           })
           .then((selection) => {
             if (!selection) {
               return;
             }
-            selectedRepositoryType = selection.toString().toLowerCase();
+            selectedRepoSource = selection.toString().toLowerCase();
           });
-        if (!selectedRepositoryType) {
-          window.showErrorMessage("Repository Type is required!");
-          return;
-        }
-        if (selectedRepositoryType && selectedRepositoryType === "remote") {
+        if (selectedRepoSource) {
           await window
-            .showQuickPick(["Github", "Gitlab"], {
-              placeHolder: "Select Repository Source",
+            .showQuickPick(["Basic", "None", "Token"], {
+              placeHolder: "Select Authentication Mode",
               ignoreFocusOut: true,
             })
             .then((selection) => {
               if (!selection) {
                 return;
               }
-              selectedRepoSource = selection.toString().toLowerCase();
+              authType = selection.toString().toLocaleLowerCase();
             });
-          if (selectedRepoSource) {
-            await window
-              .showQuickPick(["Basic", "None", "Token"], {
-                placeHolder: "Select Authentication Mode",
-                ignoreFocusOut: true,
-              })
-              .then((selection) => {
-                if (!selection) {
-                  return;
-                }
-                authType = selection.toString().toLocaleLowerCase();
-              });
-            if (!authType) {
-              window.showErrorMessage("Authentication Type is required!");
-              return;
-            }
-            if (authType === "basic") {
-              window.showErrorMessage("Basic  auth type is not yet supported!");
-              selectedRepositoryType = "";
-              selectedRepoSource = "";
-              authType = "";
-              repositoryUrl = "";
-              branchName = "";
-              accessToken = "";
-              repoNamealias = "";
-              repositoryDescription = "";
-              return;
-            } else {
-              repositoryUrl = await window.showInputBox({
-                placeHolder: "Enter repository url ",
+          if (!authType) {
+            window.showErrorMessage("Authentication Type is required!");
+            return;
+          }
+          if (authType === "basic") {
+            window.showErrorMessage("Basic  auth type is not yet supported!");
+            selectedRepositoryType = "";
+            selectedRepoSource = "";
+            authType = "";
+            repositoryUrl = "";
+            branchName = "";
+            accessToken = "";
+            repoNamealias = "";
+            repositoryDescription = "";
+            return;
+          } else {
+            repositoryUrl = await window.showInputBox({
+              placeHolder: "Enter repository url ",
+              ignoreFocusOut: true,
+              validateInput: (text) => {
+                // window.showInformationMessage(`Validating: ${text}`);
+                return text === "123" ? "Not 123!" : null;
+              },
+            });
+            if (repositoryUrl) {
+              branchName = await window.showInputBox({
+                value: "",
+                valueSelection: [2, 4],
+                placeHolder: "Enter branch name ",
                 ignoreFocusOut: true,
                 validateInput: (text) => {
                   // window.showInformationMessage(`Validating: ${text}`);
                   return text === "123" ? "Not 123!" : null;
                 },
               });
-              if (repositoryUrl) {
-                branchName = await window.showInputBox({
+              if (branchName) {
+                accessToken = await window.showInputBox({
                   value: "",
                   valueSelection: [2, 4],
-                  placeHolder: "Enter branch name ",
+                  placeHolder: "Enter access token ",
                   ignoreFocusOut: true,
                   validateInput: (text) => {
                     // window.showInformationMessage(`Validating: ${text}`);
                     return text === "123" ? "Not 123!" : null;
                   },
                 });
-                if (branchName) {
-                  accessToken = await window.showInputBox({
+                if (accessToken || authType === "none") {
+                  repoNamealias = await window.showInputBox({
                     value: "",
                     valueSelection: [2, 4],
-                    placeHolder: "Enter access token ",
+                    placeHolder: "Enter repository name ",
                     ignoreFocusOut: true,
                     validateInput: (text) => {
                       // window.showInformationMessage(`Validating: ${text}`);
                       return text === "123" ? "Not 123!" : null;
                     },
                   });
-                  if (accessToken || authType === "none") {
-                    repoNamealias = await window.showInputBox({
+                  if (repoNamealias) {
+                    repositoryDescription = await window.showInputBox({
                       value: "",
                       valueSelection: [2, 4],
-                      placeHolder: "Enter repository name ",
+                      placeHolder: "Enter description ",
                       ignoreFocusOut: true,
                       validateInput: (text) => {
                         // window.showInformationMessage(`Validating: ${text}`);
                         return text === "123" ? "Not 123!" : null;
                       },
                     });
-                    if (repoNamealias) {
-                      repositoryDescription = await window.showInputBox({
-                        value: "",
-                        valueSelection: [2, 4],
-                        placeHolder: "Enter description ",
-                        ignoreFocusOut: true,
-                        validateInput: (text) => {
-                          // window.showInformationMessage(`Validating: ${text}`);
-                          return text === "123" ? "Not 123!" : null;
-                        },
-                      });
-                    }
-                    if (
-                      selectedRepositoryType &&
-                      selectedRepoSource &&
-                      authType &&
-                      repositoryUrl &&
-                      branchName &&
-                      repoNamealias &&
-                      repositoryDescription
-                    ) {
-                      let finalCommand = `tmpo repository add -t ${selectedRepositoryType} -n ${repoNamealias} -d ${repositoryDescription} --provider ${selectedRepoSource} --authentication ${authType} --url ${repositoryUrl} --branch ${branchName}`;
-                      finalCommand =
-                        authType === "token"
-                          ? finalCommand + ` --token ${accessToken}`
-                          : finalCommand;
-                      await executeCommand(finalCommand, projectPath);
-                    }
-                  } else {
-                    window.showErrorMessage(
-                      "Access token is required if auth type is token"
-                    );
-                    return;
                   }
+                  if (
+                    selectedRepositoryType &&
+                    selectedRepoSource &&
+                    authType &&
+                    repositoryUrl &&
+                    branchName &&
+                    repoNamealias &&
+                    repositoryDescription
+                  ) {
+                    let finalCommand = `tmpo repository add -t "${selectedRepositoryType}" -n  "${repoNamealias}" -d "${repositoryDescription}" --provider "${selectedRepoSource}" --authentication "${authType}" --url "${repositoryUrl}" --branch "${branchName}"`;
+                    finalCommand =
+                      authType === "token"
+                        ? finalCommand + ` --token ${accessToken}`
+                        : finalCommand;
+                    await executeCommand(finalCommand);
+                  }
+                } else {
+                  window.showErrorMessage(
+                    "Access token is required if auth type is token"
+                  );
+                  return;
                 }
-              } else {
-                window.showErrorMessage("Invalid repository url");
-                return;
               }
+            } else {
+              window.showErrorMessage("Invalid repository url");
+              return;
             }
-          } else {
-            window.showErrorMessage("Repository provider is required!");
-            return;
           }
         } else {
-          window.showErrorMessage(
-            "Repository Type Directory is not yet supported!"
-          );
+          window.showErrorMessage("Repository provider is required!");
           return;
         }
       } else {
-        window.showErrorMessage("Directory path is required!");
+        window.showErrorMessage(
+          "Repository Type Directory is not yet supported!"
+        );
         return;
       }
     })
